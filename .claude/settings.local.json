@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gcloud --version)",
+      "Bash(gcloud projects:*)",
+      "Bash(gcloud config:*)",
+      "Bash(gcloud billing:*)",
+      "Bash(gcloud auth:*)"
+    ]
+  }
+}
