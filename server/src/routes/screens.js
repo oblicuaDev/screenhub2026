@@ -2,11 +2,10 @@ const router = require('express').Router();
 const ctrl = require('../controllers/screensController');
 const auth = require('../middleware/auth');
 
-router.use(auth);
-router.get('/', ctrl.list);
-router.get('/:id', ctrl.get);
-router.post('/', ctrl.create);
-router.put('/:id', ctrl.update);
-router.delete('/:id', ctrl.remove);
+router.get('/', auth, ctrl.list);
+router.get('/:id', auth, ctrl.get);
+router.post('/', auth, ctrl.create);
+router.put('/:id', auth, ctrl.update);
+router.delete('/:id', auth, ctrl.remove);
 
 module.exports = router;
