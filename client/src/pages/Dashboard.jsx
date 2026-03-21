@@ -1,74 +1,203 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getScreens } from '../api/screens';
+import { screensApi } from '../api/screens';
+import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 
-const StatusBadge = ({ status }) => {
-  const colors = { active: 'bg-green-100 text-green-700', inactive: 'bg-gray-100 text-gray-600', maintenance: 'bg-yellow-100 text-yellow-700' };
-  const labels = { active: 'Activa', inactive: 'Inactiva', maintenance: 'Mantenimiento' };
-  return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${colors[status] || colors.inactive}`}>{labels[status] || status}</span>;
-};
+function StatCard({ label, value, icon, color, loading }) {
+  return (
+    <div className="stat-card">
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+        <div>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em', fontFamily: 'var(--font-body)', marginBottom: 8 }}>
+            {label}
+          </p>
+          <p style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', fontWeight: 700, color, lineHeight: 1 }}>
+            {loading ? '—' : value}
+          </p>
+        </div>
+        <div style={{
+          width: 40, height: 40,
+          background: `${color}18`,
+          border: `1px solid ${color}30`,
+          borderRadius: 10,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          color,
+        }}>
+          {icon}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Dashboard() {
+  const { user } = useAuth();
   const [screens, setScreens] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getScreens()
+    screensApi.list()
       .then(setScreens)
       .catch(() => toast.error('Error cargando pantallas'))
       .finally(() => setLoading(false));
   }, []);
 
   const total = screens.length;
-  const active = screens.filter(s => s.status === 'active').length;
+  const published = screens.filter(s => s.status === 'published').length;
+  const drafts = screens.filter(s => s.status === 'draft').length;
   const totalContent = screens.reduce((sum, s) => sum + parseInt(s.content_count || 0), 0);
 
+  const trialDaysLeft = user?.trialEndsAt
+    ? Math.max(0, Math.ceil((new Date(user.trialEndsAt) - new Date()) / 86400000))
+    : null;
+  const onTrial = trialDaysLeft !== null && !user?.subscriptionStatus;
+
   return (
-    <div className="p-6 space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-sm text-gray-500 mt-1">Resumen general del sistema</p>
+    <div className="fade-in">
+      {/* Header */}
+      <div style={{ marginBottom: 28 }}>
+        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '1.5rem', fontWeight: 700, marginBottom: 4 }}>
+          Bienvenido, {user?.name?.split(' ')[0]}
+        </h1>
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+          {new Date().toLocaleDateString('es-AR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+        </p>
       </div>
+
+      {/* Trial alert */}
+      {onTrial && (
+        <div className="alert-warning" style={{ marginBottom: 24 }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" style={{ flexShrink: 0 }}>
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/>
+          </svg>
+          <div>
+            <strong>Período de prueba activo</strong> — Quedan <strong>{trialDaysLeft} días</strong>.{' '}
+            <Link to="/billing" style={{ color: 'var(--warning)', fontWeight: 600 }}>Suscribirte ahora →</Link>
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {[
-          { label: 'Total pantallas', value: total, color: 'text-primary-600', bg: 'bg-primary-50' },
-          { label: 'Pantallas activas', value: active, color: 'text-green-600', bg: 'bg-green-50' },
-          { label: 'Contenidos activos', value: totalContent, color: 'text-purple-600', bg: 'bg-purple-50' },
-        ].map(({ label, value, color, bg }) => (
-          <div key={label} className="card p-5">
-            <p className="text-sm text-gray-500">{label}</p>
-            <p className={`text-3xl font-bold mt-1 ${color}`}>{loading ? '—' : value}</p>
-          </div>
-        ))}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 28 }} className="stagger">
+        <StatCard
+          label="Total pantallas"
+          value={total}
+          color="var(--accent-bright)"
+          loading={loading}
+          icon={<svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" strokeWidth="1.8"/><path d="M8 21h8M12 17v4" strokeWidth="1.8" strokeLinecap="round"/></svg>}
+        />
+        <StatCard
+          label="Publicadas"
+          value={published}
+          color="var(--success)"
+          loading={loading}
+          icon={<svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" strokeWidth="1.8"/><path d="M9 12l2 2 4-4" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+        />
+        <StatCard
+          label="Borradores"
+          value={drafts}
+          color="var(--text-secondary)"
+          loading={loading}
+          icon={<svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" strokeWidth="1.8" strokeLinecap="round"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" strokeWidth="1.8" strokeLinecap="round"/></svg>}
+        />
+        <StatCard
+          label="Contenidos"
+          value={totalContent}
+          color="var(--accent-cyan)"
+          loading={loading}
+          icon={<svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" strokeWidth="1.8"/><path d="M9 9l6 3-6 3V9z" fill="currentColor" stroke="none"/></svg>}
+        />
       </div>
 
-      {/* Screen list */}
-      <div className="card">
-        <div className="flex items-center justify-between p-5 border-b border-gray-100">
-          <h2 className="font-semibold text-gray-900">Pantallas recientes</h2>
-          <Link to="/screens" className="text-sm text-primary-600 hover:underline">Ver todas</Link>
+      {/* Plan info */}
+      {user?.planName && (
+        <div className="card" style={{ padding: '16px 20px', marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span className="badge-active">PLAN {user.planName?.toUpperCase()}</span>
+            <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+              {published} / {user.screenLimit} pantallas publicadas
+            </span>
+          </div>
+          {published >= (user.screenLimit || 1) && (
+            <Link to="/billing" className="btn-warning btn-sm">Mejorar plan</Link>
+          )}
         </div>
+      )}
+
+      {/* Recent screens */}
+      <div className="card">
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '16px 20px',
+          borderBottom: '1px solid var(--border)',
+        }}>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: '1rem' }}>
+            Pantallas recientes
+          </h2>
+          <Link to="/screens" style={{ color: 'var(--accent-bright)', fontSize: '0.8rem', textDecoration: 'none', fontWeight: 500 }}>
+            Ver todas →
+          </Link>
+        </div>
+
         {loading ? (
-          <div className="p-8 text-center text-gray-400">Cargando...</div>
+          <div style={{ padding: 32, textAlign: 'center' }}>
+            <div className="spinner" />
+          </div>
         ) : screens.length === 0 ? (
-          <div className="p-8 text-center">
-            <p className="text-gray-500 mb-3">No hay pantallas registradas</p>
-            <Link to="/screens" className="btn-primary">Crear primera pantalla</Link>
+          <div style={{ padding: 40, textAlign: 'center' }}>
+            <p style={{ color: 'var(--text-muted)', marginBottom: 16, fontSize: '0.875rem' }}>
+              No hay pantallas creadas aún
+            </p>
+            <Link to="/screens" className="btn-primary">
+              Crear primera pantalla
+            </Link>
           </div>
         ) : (
-          <div className="divide-y divide-gray-100">
-            {screens.slice(0, 5).map(screen => (
-              <Link key={screen.id} to={`/screens/${screen.id}`} className="flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors">
-                <div>
-                  <p className="font-medium text-gray-900 text-sm">{screen.name}</p>
-                  <p className="text-xs text-gray-400">{screen.location || 'Sin ubicación'} · {screen.resolution}</p>
+          <div>
+            {screens.slice(0, 6).map((screen, i) => (
+              <Link
+                key={screen.id}
+                to={`/screens/${screen.id}`}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '14px 20px',
+                  borderBottom: i < Math.min(screens.length, 6) - 1 ? '1px solid var(--border)' : 'none',
+                  textDecoration: 'none',
+                  transition: 'background 0.15s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-elevated)'}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{
+                    width: 36, height: 36,
+                    background: 'var(--bg-elevated)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 8,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: 'var(--text-muted)',
+                  }}>
+                    <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <rect x="2" y="3" width="20" height="14" rx="2" strokeWidth="1.8"/>
+                    </svg>
+                  </div>
+                  <div>
+                    <p style={{ fontWeight: 500, fontSize: '0.875rem', color: 'var(--text-primary)', marginBottom: 2 }}>
+                      {screen.name}
+                    </p>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      {screen.content_count || 0} contenidos · {screen.orientation}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-gray-400">{screen.content_count} contenidos</span>
-                  <StatusBadge status={screen.status} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span className="code" style={{ fontSize: '0.7rem' }}>{screen.short_code}</span>
+                  <span className={screen.status === 'published' ? 'badge-published' : 'badge-draft'}>
+                    {screen.status === 'published' ? 'Publicada' : 'Borrador'}
+                  </span>
                 </div>
               </Link>
             ))}

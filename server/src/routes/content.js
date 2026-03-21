@@ -1,13 +1,9 @@
 const router = require('express').Router({ mergeParams: true });
 const ctrl = require('../controllers/contentController');
-const auth = require('../middleware/auth');
+const { authenticate, requireEditor } = require('../middleware/auth');
 const { upload } = require('../middleware/upload');
 
-// Public player endpoint
-router.get('/player', ctrl.player);
-
-// Protected routes
-router.use(auth);
+router.use(authenticate, requireEditor);
 router.get('/', ctrl.list);
 router.post('/', upload.single('file'), ctrl.create);
 router.put('/reorder', ctrl.reorder);
