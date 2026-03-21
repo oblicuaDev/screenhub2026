@@ -27,3 +27,7 @@ nginx -t && systemctl reload nginx
 
 echo "✓ Deploy complete!"
 pm2 status
+
+echo ""
+echo "NOTE: If this is the first deploy of the SaaS schema, run:"
+echo "  psql -U screenhub_user -d screenhub -f /opt/screenhub/server/src/db/migrations/002_saas_schema.sql"
